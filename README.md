@@ -185,3 +185,7 @@ After registration, the first user becomes ADMIN for the company.
 ## License
 
 MIT License - Built for the Tunisian market 🇹🇳
+
+## Author
+
+**Hamdi Fersi**
