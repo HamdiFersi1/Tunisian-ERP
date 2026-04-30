@@ -1,0 +1,371 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id          String   @id @default(uuid())
+  name        String
+  matriculeFiscal String @unique // MF: XXX/T/A/P/XXX
+  registreCommerce String? // RC
+  codeTva     String? // Code TVA
+  address     String
+  city        String
+  postalCode  String
+  phone       String
+  email       String
+  website     String?
+  logo        String?
+  currency    String   @default("TND")
+  fiscalYearStart Int  @default(1) // Month number
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  accounts    Account[]
+  products    Product[]
+  clients     Client[]
+  suppliers   Supplier[]
+  invoices    Invoice[]
+  purchases   Purchase[]
+  employees   Employee[]
+  payrolls    Payroll[]
+  journalEntries JournalEntry[]
+
+  @@map("companies")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      Role     @default(USER)
+  isActive  Boolean  @default(true)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  ACCOUNTANT
+  SALES
+  USER
+}
+
+// Plan Comptable Tunisien (PCT)
+model Account {
+  id          String   @id @default(uuid())
+  code        String   // e.g., "5321", "607"
+  nameFr      String   // French name
+  nameAr      String?  // Arabic name
+  class       Int      // 1-7 (PCT classes)
+  type        AccountType
+  isActive    Boolean  @default(true)
+  parentId    String?
+  parent      Account? @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children    Account[] @relation("AccountHierarchy")
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  ledgerEntries LedgerEntry[]
+  createdAt   DateTime @default(now())
+
+  @@unique([companyId, code])
+  @@map("accounts")
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+model Client {
+  id          String   @id @default(uuid())
+  code        String
+  name        String
+  matriculeFiscal String?
+  address     String?
+  city        String?
+  phone       String?
+  email       String?
+  creditLimit Decimal? @db.Decimal(15, 3)
+  balance     Decimal  @default(0) @db.Decimal(15, 3)
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  invoices    Invoice[]
+  createdAt   DateTime @default(now())
+
+  @@unique([companyId, code])
+  @@map("clients")
+}
+
+model Supplier {
+  id          String   @id @default(uuid())
+  code        String
+  name        String
+  matriculeFiscal String?
+  address     String?
+  city        String?
+  phone       String?
+  email       String?
+  balance     Decimal  @default(0) @db.Decimal(15, 3)
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  purchases   Purchase[]
+  createdAt   DateTime @default(now())
+
+  @@unique([companyId, code])
+  @@map("suppliers")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  code        String
+  nameFr      String
+  nameAr      String?
+  description String?
+  category    String?
+  unit        String   @default("PIECE") // PIECE, KG, LITRE, METER
+  purchasePrice Decimal @db.Decimal(15, 3)
+  salePrice   Decimal  @db.Decimal(15, 3)
+  vatRate     Decimal  @default(19) @db.Decimal(5, 2) // 19%, 13%, 7%, 0%
+  stock       Decimal  @default(0) @db.Decimal(15, 3)
+  minStock    Decimal  @default(0) @db.Decimal(15, 3)
+  accountCode String   // Link to PCT account (e.g., 355 for finished goods)
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  invoiceItems InvoiceItem[]
+  purchaseItems PurchaseItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, code])
+  @@map("products")
+}
+
+model Invoice {
+  id          String   @id @default(uuid())
+  number      String   // Auto-generated: FAC-YYYY-XXXX
+  date        DateTime
+  dueDate     DateTime
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  items       InvoiceItem[]
+  subTotal    Decimal  @db.Decimal(15, 3)
+  vatTotal    Decimal  @db.Decimal(15, 3)
+  total       Decimal  @db.Decimal(15, 3)
+  paidAmount  Decimal  @default(0) @db.Decimal(15, 3)
+  status      InvoiceStatus @default(DRAFT)
+  paymentMethod PaymentMethod?
+  notes       String?
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  journalEntries JournalEntry[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, number])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  PARTIAL
+  OVERDUE
+  CANCELLED
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  description String
+  quantity    Decimal  @db.Decimal(15, 3)
+  unitPrice   Decimal  @db.Decimal(15, 3)
+  vatRate     Decimal  @db.Decimal(5, 2)
+  discount    Decimal  @default(0) @db.Decimal(15, 3)
+  total       Decimal  @db.Decimal(15, 3)
+
+  @@map("invoice_items")
+}
+
+model Purchase {
+  id          String   @id @default(uuid())
+  number      String   // Auto-generated: ACH-YYYY-XXXX
+  date        DateTime
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  items       PurchaseItem[]
+  subTotal    Decimal  @db.Decimal(15, 3)
+  vatTotal    Decimal  @db.Decimal(15, 3)
+  total       Decimal  @db.Decimal(15, 3)
+  paidAmount  Decimal  @default(0) @db.Decimal(15, 3)
+  status      PurchaseStatus @default(DRAFT)
+  notes       String?
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  journalEntries JournalEntry[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, number])
+  @@map("purchases")
+}
+
+enum PurchaseStatus {
+  DRAFT
+  ORDERED
+  RECEIVED
+  PAID
+  PARTIAL
+  CANCELLED
+}
+
+model PurchaseItem {
+  id          String   @id @default(uuid())
+  purchaseId  String
+  purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  description String
+  quantity    Decimal  @db.Decimal(15, 3)
+  unitPrice   Decimal  @db.Decimal(15, 3)
+  vatRate     Decimal  @db.Decimal(5, 2)
+  total       Decimal  @db.Decimal(15, 3)
+
+  @@map("purchase_items")
+}
+
+model Employee {
+  id              String   @id @default(uuid())
+  matricule       String   // Employee ID
+  firstName       String
+  lastName        String
+  email           String?
+  phone           String?
+  address         String?
+  city            String?
+  birthDate       DateTime?
+  hireDate        DateTime
+  contractType    ContractType @default(CDI)
+  department      String?
+  position        String?
+  baseSalary      Decimal  @db.Decimal(15, 3) // Gross salary
+  cnssNumber      String?
+  isActive        Boolean  @default(true)
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id])
+  payrolls        Payroll[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([companyId, matricule])
+  @@map("employees")
+}
+
+enum ContractType {
+  CDI
+  CDD
+  CDD_SAISONNIER
+  STAGE
+}
+
+model Payroll {
+  id              String   @id @default(uuid())
+  employeeId      String
+  employee        Employee @relation(fields: [employeeId], references: [id])
+  period          String   // YYYY-MM
+  baseSalary      Decimal  @db.Decimal(15, 3)
+  bonuses         Decimal  @default(0) @db.Decimal(15, 3)
+  overtime        Decimal  @default(0) @db.Decimal(15, 3)
+  grossSalary     Decimal  @db.Decimal(15, 3)
+  // CNSS Deductions (Employee: 9.68%)
+  cnssEmployee    Decimal  @db.Decimal(15, 3)
+  // CNSS Contributions (Employer: 17.07%)
+  cnssEmployer    Decimal  @db.Decimal(15, 3)
+  // Unemployment Insurance (0.5% each)
+  unemploymentEmployee Decimal @default(0) @db.Decimal(15, 3)
+  unemploymentEmployer Decimal @default(0) @db.Decimal(15, 3)
+  // Work Accident (0.4% - 4%)
+  workAccident    Decimal  @db.Decimal(15, 3)
+  // IRPP (Income Tax)
+  irpp            Decimal  @db.Decimal(15, 3)
+  // CSS (Solidarity Contribution)
+  css             Decimal  @default(0) @db.Decimal(15, 3)
+  // Other deductions
+  advances        Decimal  @default(0) @db.Decimal(15, 3)
+  otherDeductions Decimal  @default(0) @db.Decimal(15, 3)
+  netSalary       Decimal  @db.Decimal(15, 3)
+  // Employer costs
+  tfp             Decimal  @db.Decimal(15, 3) // 1% or 2%
+  foprolos        Decimal  @db.Decimal(15, 3) // 1%
+  totalEmployerCost Decimal @db.Decimal(15, 3)
+  status          PayrollStatus @default(DRAFT)
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id])
+  createdAt       DateTime @default(now())
+
+  @@unique([employeeId, period])
+  @@map("payrolls")
+}
+
+enum PayrollStatus {
+  DRAFT
+  CONFIRMED
+  PAID
+}
+
+model JournalEntry {
+  id          String   @id @default(uuid())
+  date        DateTime
+  reference   String   // Invoice/Purchase number
+  description String
+  entries     LedgerEntry[]
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  invoiceId   String?
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id])
+  purchaseId  String?
+  purchase    Purchase? @relation(fields: [purchaseId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@map("journal_entries")
+}
+
+model LedgerEntry {
+  id              String   @id @default(uuid())
+  journalEntryId  String
+  journalEntry    JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  accountId       String
+  account         Account  @relation(fields: [accountId], references: [id])
+  debit           Decimal  @default(0) @db.Decimal(15, 3)
+  credit          Decimal  @default(0) @db.Decimal(15, 3)
+  description     String?
+
+  @@map("ledger_entries")
+}
+
+enum PaymentMethod {
+  CASH
+  CHECK
+  BANK_TRANSFER
+  CREDIT_CARD
+  DIRECT_DEBIT
+}
