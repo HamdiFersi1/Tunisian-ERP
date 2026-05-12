@@ -2,6 +2,31 @@
 
 A complete mini-ERP system tailored for the Tunisian market, built with Node.js, React, and PostgreSQL.
 
+## Screenshots
+
+### 📊 Tableau de Bord
+![Tableau de Bord](screenshots/dashboard.png)
+
+### 📒 Comptabilité (Plan Comptable Tunisien)
+![Comptabilité PCT](screenshots/comptabilite.png)
+
+### 👥 CRM – Fiche Client
+![CRM Fiche Client](screenshots/CRM.png)
+
+### 📦 Stocks – Fiche Article Détaillée
+![Stocks](screenshots/stock_detailes.png)
+
+### 🧾 Ventes & Achats – Nouvelle Facture
+![Nouvelle Facture](screenshots/facture.png)
+
+### 💰 Paie – Bulletin de Paie
+![Fiche de Paie](screenshots/fiche_de_paie.png)
+
+### 👷 Ressources Humaines
+![Ressources Humaines](screenshots/rh.png)
+
+---
+
 ## Features
 
 ### 🏢 Multi-company Support
