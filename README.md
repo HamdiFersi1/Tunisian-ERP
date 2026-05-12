@@ -2,6 +2,8 @@
 
 A complete mini-ERP system tailored for the Tunisian market, built with Node.js, React, and PostgreSQL.
 
+![ERP System Overview](screenshots/tous_.png)
+
 ## Screenshots
 
 ### 📊 Tableau de Bord
